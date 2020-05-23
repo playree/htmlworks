@@ -16,12 +16,19 @@ import (
 
 // DirectoriesConfig various directory settings.
 type DirectoriesConfig struct {
-	Contents string `toml:"contents"`
+	Contents  string `toml:"contents"`
+	Resources string `toml:"resources"`
+}
+
+// ServerConfig various server settings.
+type ServerConfig struct {
+	Port int `toml:"port"`
 }
 
 // Config settings.
 type Config struct {
 	Directories DirectoriesConfig `toml:"directories"`
+	Server      ServerConfig      `toml:"server"`
 }
 
 const (
@@ -43,6 +50,9 @@ func main() {
 	}
 
 	switch mode {
+	case "init":
+		procInit()
+		break
 	case "serve":
 		procServer()
 		break
@@ -54,13 +64,21 @@ func main() {
 	}
 }
 
+func procInit() {
+
+}
+
 func procServer() {
-	log.Println("Mode:Server ========")
+	log.Println("Start Server ========")
+	log.Println("Port:", conf.Server.Port)
 
 	goingtpl.SetBaseDir(conf.Directories.Contents)
 
 	http.HandleFunc("/", handleServer)
-	log.Fatal(http.ListenAndServe(":8088", nil))
+	http.Handle(
+		"/"+conf.Directories.Resources+"/",
+		http.StripPrefix("/"+conf.Directories.Resources+"/", http.FileServer(http.Dir(conf.Directories.Resources+"/"))))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", conf.Server.Port), nil))
 }
 
 func handleServer(w http.ResponseWriter, r *http.Request) {
@@ -71,7 +89,7 @@ func handleServer(w http.ResponseWriter, r *http.Request) {
 	buf, err := ioutil.ReadFile(goingtpl.GetBaseDir() + filename)
 	if err != nil {
 		log.Println("Not found file:", filename)
-		fmt.Fprintf(w, "404 Not Found")
+		http.NotFound(w, r)
 		return
 	}
 	log.Println("Load file:", filename)
@@ -96,7 +114,7 @@ func handleServer(w http.ResponseWriter, r *http.Request) {
 }
 
 func procGenerate() {
-	log.Println("Mode:Generate ========")
+	log.Println("Start Generate ========")
 }
 
 func convFilename(uri string) string {

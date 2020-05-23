@@ -1,2 +1,6 @@
 [directories]
 contents = "contents"
+resources = "resources"
+
+[server]
+port = 8088
