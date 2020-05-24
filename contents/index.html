@@ -1,4 +1,28 @@
+<!--params
+	{
+		"str1":"abc",
+		"int1":123,
+		"bool1":true,
+		"array1":["a1","a2","a3"]
+	}
+-->
 {{extends "_parts/base.html"}}
 {{define "content"}}
-index.html
+<p>index.html</p>
+<p>str1:{{.str1}}</p>
+<p>int1:{{.int1}}</p>
+<p>
+	bool1:{{.bool1}}
+	{{if .bool1}}
+		<p style="padding-left: 1rem;">if TRUE</p>
+	{{end}}
+</p>
+<p>
+	array1:
+	<ul>
+		{{range $i, $val := .array1}}
+			<li>{{$i}} : {{$val}}</li>
+		{{end}}
+	</ul>
+</p>
 {{end}}

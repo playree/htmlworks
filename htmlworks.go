@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"html/template"
@@ -33,6 +34,8 @@ type Config struct {
 
 const (
 	configFilePath = "./htmlworks.toml"
+	paramStart     = "<!--params"
+	paramEnd       = "-->"
 )
 
 var (
@@ -77,7 +80,9 @@ func procServer() {
 	http.HandleFunc("/", handleServer)
 	http.Handle(
 		"/"+conf.Directories.Resources+"/",
-		http.StripPrefix("/"+conf.Directories.Resources+"/", http.FileServer(http.Dir(conf.Directories.Resources+"/"))))
+		http.StripPrefix(
+			"/"+conf.Directories.Resources+"/",
+			http.FileServer(http.Dir(conf.Directories.Resources+"/"))))
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", conf.Server.Port), nil))
 }
 
@@ -94,23 +99,40 @@ func handleServer(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Println("Load file:", filename)
 
+	// Extraction params.
+	params, contents, err := extParam(string(buf))
+	if err != nil {
+		log.Println(err)
+	}
+
 	funcMap := template.FuncMap{
 		"repeat": func(s string, i int) string {
 			return strings.Repeat(s, i)
 		}}
-	tpl := template.Must(goingtpl.ParseFuncs(filename, string(buf), funcMap))
+	tpl := template.Must(goingtpl.ParseFuncs(filename, contents, funcMap))
 
-	m := map[string]string{
-		"Date": time.Now().Format("2006-01-02"),
-		"Time": time.Now().Format("15:04:05"),
-	}
-	err = tpl.Execute(w, m)
+	err = tpl.Execute(w, params)
 	if err != nil {
 		panic(err)
 	}
 
 	log.Printf("ExecTime=%d MicroSec\n",
 		(time.Now().UnixNano()-start)/int64(time.Microsecond))
+}
+
+func extParam(contents string) (map[string]interface{}, string, error) {
+	if start := strings.Index(contents, paramStart); start >= 0 {
+		start += len(paramStart)
+		if end := strings.Index(contents[start:], paramEnd); end >= 0 {
+			end += start
+			var params map[string]interface{}
+			err := json.Unmarshal([]byte(contents[start:end]), &params)
+			log.Println("params", params)
+
+			return params, contents[end+len(paramEnd):], err
+		}
+	}
+	return map[string]interface{}{}, contents, nil
 }
 
 func procGenerate() {
