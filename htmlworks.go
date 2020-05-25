@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 // DirectoriesConfig various directory settings.
 type DirectoriesConfig struct {
 	Contents  string `toml:"contents"`
+	Exclusion string `toml:"exclusion"`
 	Resources string `toml:"resources"`
 }
 
@@ -74,6 +76,8 @@ func procInit() {
 func procServer() {
 	log.Println("Start Server ========")
 	log.Println("Port:", conf.Server.Port)
+	log.Println("Contents directory:", conf.Directories.Contents)
+	log.Println("Resources directory:", conf.Directories.Resources)
 
 	goingtpl.SetBaseDir(conf.Directories.Contents)
 
@@ -137,6 +141,15 @@ func extParam(contents string) (map[string]interface{}, string, error) {
 
 func procGenerate() {
 	log.Println("Start Generate ========")
+	log.Println("Contents directory:", conf.Directories.Contents)
+	log.Println("Exclusion directory:", conf.Directories.Exclusion)
+	log.Println("Resources directory:", conf.Directories.Resources)
+
+	targetFileList := getTarget(conf.Directories.Contents)
+	if len(targetFileList) > 0 {
+		log.Println("Target file:", len(targetFileList))
+		log.Println(targetFileList)
+	}
 }
 
 func convFilename(uri string) string {
@@ -145,4 +158,29 @@ func convFilename(uri string) string {
 		filename += "index.html"
 	}
 	return filename
+}
+
+func getTarget(targetDir string) []string {
+	files, err := ioutil.ReadDir(targetDir)
+	if err != nil {
+		panic(err)
+	}
+
+	var fileList []string
+	for _, file := range files {
+		if file.Name()[0] == '.' {
+			continue
+		} else if file.IsDir() {
+			if file.Name() != conf.Directories.Exclusion {
+				fileList = append(fileList, getTarget(filepath.Join(targetDir, file.Name()))...)
+			}
+		} else {
+			fileList = append(fileList, (filepath.Join(targetDir, file.Name()))[len(conf.Directories.Contents)+1:])
+		}
+	}
+	return fileList
+}
+
+func genFile(targetPath string) error {
+	return nil
 }
