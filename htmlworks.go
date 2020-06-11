@@ -96,6 +96,7 @@ func procServer() {
 
 func handleServer(w http.ResponseWriter, r *http.Request) {
 	start := time.Now().UnixNano()
+	log.Println("----")
 	log.Println("RequestURI:", r.RequestURI)
 	filename := convFilename(r.RequestURI)
 
@@ -160,37 +161,50 @@ func procGenerate() {
 
 	goingtpl.SetBaseDir(conf.Directories.Contents)
 
-	targetFileList := getTarget(conf.Directories.Contents)
+	// Generate Contents
+	genContents()
+
+	// Copy Resources
+	copyResources()
+
+	log.Printf("ExecTime=%d MicroSec\n",
+		(time.Now().UnixNano()-start)/int64(time.Microsecond))
+}
+
+func genContents() {
+	targetFileList := getTargetContents()
 	if len(targetFileList) > 0 {
 		log.Println("Target file:", len(targetFileList))
 		for _, file := range targetFileList {
-			// 対象を生成
+			// Generate HTML
+			log.Println("----")
 			var buffSrc bytes.Buffer
 			executeWriter(&buffSrc, file)
 
 			targetPath := filepath.Join(conf.Directories.Generate, file)
 			targetDir := filepath.Dir(targetPath)
 
-			// ディレクトリの確認と作成
-			if _, err := os.Stat(targetDir); os.IsNotExist(err) {
+			// Exist Directory & Create Directory
+			if f, err := os.Stat(targetDir); os.IsNotExist(err) || !f.IsDir() {
 				err := os.MkdirAll(targetDir, 0777)
 				if err != nil {
 					log.Fatalln("Error:", err)
 				}
 			}
 
-			// 生成先の確認
+			// Exist Destination
 			buffDest, err := ioutil.ReadFile(targetPath)
 			if err != nil {
-				// ファイルが無ければ生成
+				// Create File
 				log.Println("Create:", targetPath)
 				err := ioutil.WriteFile(targetPath, buffSrc.Bytes(), 0664)
 				if err != nil {
 					log.Fatalln("Error:", err)
 				}
 			} else {
-				// ファイルが在れば、差分を比較して更新
+				// Compare Src & Dest
 				if bytes.Compare(buffSrc.Bytes(), buffDest) != 0 {
+					// Update File
 					log.Println("Update:", targetPath)
 					err := ioutil.WriteFile(targetPath, buffSrc.Bytes(), 0664)
 					if err != nil {
@@ -204,8 +218,57 @@ func procGenerate() {
 	} else {
 		log.Println("Target file not found.")
 	}
-	log.Printf("ExecTime=%d MicroSec\n",
-		(time.Now().UnixNano()-start)/int64(time.Microsecond))
+}
+
+func copyResources() {
+	targetFileList := getTargetResources()
+	if len(targetFileList) > 0 {
+		log.Println("Target file:", len(targetFileList))
+		for _, file := range targetFileList {
+			log.Println("----")
+			log.Println("Found resource:", file)
+			pathFrom := filepath.Join(conf.Directories.Resources, file)
+			pathTo := filepath.Join(conf.Directories.Generate, pathFrom)
+			targetDir := filepath.Dir(pathTo)
+
+			// Exist From
+			buffFrom, err := ioutil.ReadFile(pathFrom)
+			if err != nil {
+				log.Fatalln("Error:", err)
+			}
+
+			// Exist Directory & Create Directory
+			if f, err := os.Stat(targetDir); os.IsNotExist(err) || !f.IsDir() {
+				err := os.MkdirAll(targetDir, 0777)
+				if err != nil {
+					log.Fatalln("Error:", err)
+				}
+			}
+
+			// Exist To
+			buffTo, err := ioutil.ReadFile(pathTo)
+			if err != nil {
+				// Copy file
+				log.Println("Copy:", pathTo)
+				err := ioutil.WriteFile(pathTo, buffFrom, 0664)
+				if err != nil {
+					log.Fatalln("Error:", err)
+				}
+			} else {
+				// Compare From & To
+				if bytes.Compare(buffFrom, buffTo) != 0 {
+					// Copy file
+					log.Println("Copy:", pathTo)
+					err := ioutil.WriteFile(pathTo, buffFrom, 0664)
+					if err != nil {
+						log.Fatalln("Error:", err)
+					}
+				} else {
+					log.Println("Pass:", pathTo)
+				}
+			}
+		}
+	}
 }
 
 func convFilename(uri string) string {
@@ -216,7 +279,11 @@ func convFilename(uri string) string {
 	return filename
 }
 
-func getTarget(targetDir string) []string {
+func getTargetContents() []string {
+	return _getTargetContents(conf.Directories.Contents)
+}
+
+func _getTargetContents(targetDir string) []string {
 	files, err := ioutil.ReadDir(targetDir)
 	if err != nil {
 		panic(err)
@@ -228,10 +295,33 @@ func getTarget(targetDir string) []string {
 			continue
 		} else if file.IsDir() {
 			if file.Name() != conf.Directories.Exclusion {
-				fileList = append(fileList, getTarget(filepath.Join(targetDir, file.Name()))...)
+				fileList = append(fileList, _getTargetContents(filepath.Join(targetDir, file.Name()))...)
 			}
 		} else {
 			fileList = append(fileList, (filepath.Join(targetDir, file.Name()))[len(conf.Directories.Contents)+1:])
+		}
+	}
+	return fileList
+}
+
+func getTargetResources() []string {
+	return _getTargetResources(conf.Directories.Resources)
+}
+
+func _getTargetResources(targetDir string) []string {
+	files, err := ioutil.ReadDir(targetDir)
+	if err != nil {
+		panic(err)
+	}
+
+	var fileList []string
+	for _, file := range files {
+		if file.Name()[0] == '.' {
+			continue
+		} else if file.IsDir() {
+			fileList = append(fileList, _getTargetContents(filepath.Join(targetDir, file.Name()))...)
+		} else {
+			fileList = append(fileList, (filepath.Join(targetDir, file.Name()))[len(conf.Directories.Resources)+1:])
 		}
 	}
 	return fileList
