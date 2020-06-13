@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -11,8 +12,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -32,31 +35,51 @@ type ServerConfig struct {
 	Port int `toml:"port"`
 }
 
+// GenerateConfig various generate settings.
+type GenerateConfig struct {
+	Delete bool `toml:"delete"`
+}
+
 // Config settings.
 type Config struct {
 	Directories DirectoriesConfig `toml:"directories"`
 	Server      ServerConfig      `toml:"server"`
+	Generate    GenerateConfig    `toml:"generate"`
 }
 
 const (
+	version        = "1.0.0"
 	configFilePath = "./htmlworks.toml"
 	paramStart     = "<!--params"
 	paramEnd       = "-->"
+	initToml       = `
+### HTML Works Settings
+[directories]
+contents = "contents" #
+exclusion = "_parts"
+resources = "resources"
+generate = "public"
+
+[server]
+# Development server port.
+port = 8088
+
+[generate]
+# Delete files that are not generated.
+delete = true
+`
 )
 
 var (
 	conf Config
+	serv *http.Server
 )
 
 func main() {
 	flag.Parse()
 	mode := flag.Arg(0)
+	log.Println("HTML Works", "ver", version)
 	log.Println("args:", mode)
-
-	// Load config file.
-	if _, err := toml.DecodeFile(configFilePath, &conf); err != nil {
-		log.Fatalln("Error:", err)
-	}
 
 	switch mode {
 	case "init":
@@ -74,10 +97,28 @@ func main() {
 }
 
 func procInit() {
-
+	log.Println("Start Init ========")
+	if f, err := os.Stat("htmlworks.toml"); os.IsNotExist(err) || f.IsDir() {
+		// Create htmlworks.toml
+		log.Println("Create htmlworks.toml")
+		fatalCheck(ioutil.WriteFile("htmlworks.toml", []byte(initToml), 0664))
+		if f, err := os.Stat("contents\\_parts"); os.IsNotExist(err) || !f.IsDir() {
+			fatalCheck(os.MkdirAll("contents\\_parts", 0777))
+		}
+		if f, err := os.Stat("resources"); os.IsNotExist(err) || !f.IsDir() {
+			fatalCheck(os.MkdirAll("resources", 0777))
+		}
+	} else {
+		log.Println("htmlworks.toml already exists")
+	}
+	log.Println("End Init ========")
 }
 
 func procServer() {
+	// Load config file.
+	_, err := toml.DecodeFile(configFilePath, &conf)
+	fatalCheck(err)
+
 	log.Println("Start Server ========")
 	log.Println("Port:", conf.Server.Port)
 	log.Println("Contents directory:", conf.Directories.Contents)
@@ -91,17 +132,30 @@ func procServer() {
 		http.StripPrefix(
 			"/"+conf.Directories.Resources+"/",
 			http.FileServer(http.Dir(conf.Directories.Resources+"/"))))
-	log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", conf.Server.Port), nil))
+
+	serv = &http.Server{Addr: fmt.Sprintf(":%d", conf.Server.Port)}
+	go func() {
+		fatalCheck(serv.ListenAndServe())
+	}()
+
+	log.Printf("Starting development server at http://localhost:%d/\n", conf.Server.Port)
+	log.Println("Quit the server with CONTROL-C.")
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
+	log.Printf("SIGNAL %d received, then shutting down...\n", <-quit)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	serv.Shutdown(ctx)
 }
 
 func handleServer(w http.ResponseWriter, r *http.Request) {
 	start := time.Now().UnixNano()
-	log.Println("----")
-	log.Println("RequestURI:", r.RequestURI)
+	log.Println("- RequestURI:", r.RequestURI)
 	filename := convFilename(r.RequestURI)
 
-	err := executeWriter(w, filename)
-	if err != nil {
+	if err := executeWriter(w, filename); err != nil {
 		log.Println("Not found file:", filename)
 		http.NotFound(w, r)
 		return
@@ -116,7 +170,7 @@ func executeWriter(w io.Writer, filename string) error {
 	if err != nil {
 		return err
 	}
-	log.Println("Load file:", filename)
+	log.Println("> Load file:", filename)
 
 	// Extraction params.
 	params, contents, err := extParam(string(buf))
@@ -153,6 +207,10 @@ func extParam(contents string) (map[string]interface{}, string, error) {
 }
 
 func procGenerate() {
+	// Load config file.
+	_, err := toml.DecodeFile(configFilePath, &conf)
+	fatalCheck(err)
+
 	start := time.Now().UnixNano()
 	log.Println("Start Generate ========")
 	log.Println("Contents directory:", conf.Directories.Contents)
@@ -161,23 +219,51 @@ func procGenerate() {
 
 	goingtpl.SetBaseDir(conf.Directories.Contents)
 
-	// Generate Contents
-	genContents()
+	processedMap := map[string]bool{}
 
-	// Copy Resources
-	copyResources()
+	// Get list before generation
+	for _, file := range getTargetGenerate() {
+		processedMap[file] = true
+	}
 
+	// Generate contents
+	log.Println("# Generate contents")
+	for _, file := range genContents() {
+		if _, ok := processedMap[file]; ok {
+			delete(processedMap, file)
+		}
+	}
+
+	// Copy resources
+	log.Println("# Copy resources")
+	for _, file := range copyResources() {
+		file = filepath.Join(conf.Directories.Resources, file)
+		if _, ok := processedMap[file]; ok {
+			delete(processedMap, file)
+		}
+	}
+
+	// Delete processed
+	if conf.Generate.Delete {
+		log.Println("# Delete not generated")
+		for key := range processedMap {
+			file := filepath.Join(conf.Directories.Generate, key)
+			fatalCheck(os.Remove(file))
+			log.Println("Delete:", file)
+		}
+	}
+
+	log.Println("End Generate ========")
 	log.Printf("ExecTime=%d MicroSec\n",
 		(time.Now().UnixNano()-start)/int64(time.Microsecond))
 }
 
-func genContents() {
+func genContents() []string {
 	targetFileList := getTargetContents()
 	if len(targetFileList) > 0 {
 		log.Println("Target file:", len(targetFileList))
 		for _, file := range targetFileList {
 			// Generate HTML
-			log.Println("----")
 			var buffSrc bytes.Buffer
 			executeWriter(&buffSrc, file)
 
@@ -186,10 +272,7 @@ func genContents() {
 
 			// Exist Directory & Create Directory
 			if f, err := os.Stat(targetDir); os.IsNotExist(err) || !f.IsDir() {
-				err := os.MkdirAll(targetDir, 0777)
-				if err != nil {
-					log.Fatalln("Error:", err)
-				}
+				fatalCheck(os.MkdirAll(targetDir, 0777))
 			}
 
 			// Exist Destination
@@ -197,19 +280,13 @@ func genContents() {
 			if err != nil {
 				// Create File
 				log.Println("Create:", targetPath)
-				err := ioutil.WriteFile(targetPath, buffSrc.Bytes(), 0664)
-				if err != nil {
-					log.Fatalln("Error:", err)
-				}
+				fatalCheck(ioutil.WriteFile(targetPath, buffSrc.Bytes(), 0664))
 			} else {
 				// Compare Src & Dest
 				if bytes.Compare(buffSrc.Bytes(), buffDest) != 0 {
 					// Update File
 					log.Println("Update:", targetPath)
-					err := ioutil.WriteFile(targetPath, buffSrc.Bytes(), 0664)
-					if err != nil {
-						log.Fatalln("Error:", err)
-					}
+					fatalCheck(ioutil.WriteFile(targetPath, buffSrc.Bytes(), 0664))
 				} else {
 					log.Println("Pass:", targetPath)
 				}
@@ -218,31 +295,26 @@ func genContents() {
 	} else {
 		log.Println("Target file not found.")
 	}
+	return targetFileList
 }
 
-func copyResources() {
+func copyResources() []string {
 	targetFileList := getTargetResources()
 	if len(targetFileList) > 0 {
 		log.Println("Target file:", len(targetFileList))
 		for _, file := range targetFileList {
-			log.Println("----")
-			log.Println("Found resource:", file)
+			log.Println("> Found resource:", file)
 			pathFrom := filepath.Join(conf.Directories.Resources, file)
 			pathTo := filepath.Join(conf.Directories.Generate, pathFrom)
 			targetDir := filepath.Dir(pathTo)
 
 			// Exist From
 			buffFrom, err := ioutil.ReadFile(pathFrom)
-			if err != nil {
-				log.Fatalln("Error:", err)
-			}
+			fatalCheck(err)
 
 			// Exist Directory & Create Directory
 			if f, err := os.Stat(targetDir); os.IsNotExist(err) || !f.IsDir() {
-				err := os.MkdirAll(targetDir, 0777)
-				if err != nil {
-					log.Fatalln("Error:", err)
-				}
+				fatalCheck(os.MkdirAll(targetDir, 0777))
 			}
 
 			// Exist To
@@ -250,25 +322,20 @@ func copyResources() {
 			if err != nil {
 				// Copy file
 				log.Println("Copy:", pathTo)
-				err := ioutil.WriteFile(pathTo, buffFrom, 0664)
-				if err != nil {
-					log.Fatalln("Error:", err)
-				}
+				fatalCheck(ioutil.WriteFile(pathTo, buffFrom, 0664))
 			} else {
 				// Compare From & To
 				if bytes.Compare(buffFrom, buffTo) != 0 {
 					// Copy file
 					log.Println("Copy:", pathTo)
-					err := ioutil.WriteFile(pathTo, buffFrom, 0664)
-					if err != nil {
-						log.Fatalln("Error:", err)
-					}
+					fatalCheck(ioutil.WriteFile(pathTo, buffFrom, 0664))
 				} else {
 					log.Println("Pass:", pathTo)
 				}
 			}
 		}
 	}
+	return targetFileList
 }
 
 func convFilename(uri string) string {
@@ -280,53 +347,47 @@ func convFilename(uri string) string {
 }
 
 func getTargetContents() []string {
-	return _getTargetContents(conf.Directories.Contents)
-}
-
-func _getTargetContents(targetDir string) []string {
-	files, err := ioutil.ReadDir(targetDir)
-	if err != nil {
-		panic(err)
-	}
-
-	var fileList []string
-	for _, file := range files {
-		if file.Name()[0] == '.' {
-			continue
-		} else if file.IsDir() {
-			if file.Name() != conf.Directories.Exclusion {
-				fileList = append(fileList, _getTargetContents(filepath.Join(targetDir, file.Name()))...)
-			}
-		} else {
-			fileList = append(fileList, (filepath.Join(targetDir, file.Name()))[len(conf.Directories.Contents)+1:])
-		}
-	}
-	return fileList
+	return _getTargetList(
+		conf.Directories.Contents,
+		conf.Directories.Contents,
+		conf.Directories.Exclusion)
 }
 
 func getTargetResources() []string {
-	return _getTargetResources(conf.Directories.Resources)
+	return _getTargetList(
+		conf.Directories.Resources,
+		conf.Directories.Resources,
+		"")
 }
 
-func _getTargetResources(targetDir string) []string {
+func getTargetGenerate() []string {
+	return _getTargetList(
+		conf.Directories.Generate,
+		conf.Directories.Generate,
+		"")
+}
+
+func _getTargetList(targetDir string, baseDir string, excDir string) []string {
 	files, err := ioutil.ReadDir(targetDir)
-	if err != nil {
-		panic(err)
-	}
+	fatalCheck(err)
 
 	var fileList []string
 	for _, file := range files {
 		if file.Name()[0] == '.' {
 			continue
 		} else if file.IsDir() {
-			fileList = append(fileList, _getTargetContents(filepath.Join(targetDir, file.Name()))...)
+			if file.Name() != excDir {
+				fileList = append(fileList, _getTargetList(filepath.Join(targetDir, file.Name()), baseDir, excDir)...)
+			}
 		} else {
-			fileList = append(fileList, (filepath.Join(targetDir, file.Name()))[len(conf.Directories.Resources)+1:])
+			fileList = append(fileList, (filepath.Join(targetDir, file.Name()))[len(baseDir)+1:])
 		}
 	}
 	return fileList
 }
 
-func genFile(targetPath string) error {
-	return nil
+func fatalCheck(err error) {
+	if err != nil {
+		log.Fatalln("Error:", err)
+	}
 }

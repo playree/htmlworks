@@ -1,8 +1,15 @@
+
+### HTML Works Settings
 [directories]
-contents = "contents"
+contents = "contents" #
 exclusion = "_parts"
 resources = "resources"
 generate = "public"
 
 [server]
+# Development server port.
 port = 8088
+
+[generate]
+# Delete files that are not generated.
+delete = true
