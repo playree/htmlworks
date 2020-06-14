@@ -8,7 +8,7 @@
 主な特徴として、
 
 * HTMLのテンプレートエンジンを使用できる  
-テンプレートエンジンには、Go言語の`html/template`を採用しています。(というかそのままですｗ)  
+テンプレートエンジンには、Go言語の `html/template` を採用しています。(というかそのままですｗ)  
 テンプレート記述のみで完結できるよう、テンプレートエンジンを多少拡張しています。
 
 * WEBサイト公開用の静的HTMLを生成できる  
@@ -26,6 +26,7 @@ Go言語で作成していますので、ビルドさえ行えば各種環境で
 * [Getting Started](#Getting%20Started)
 * [Usage](#Usage)
 * [Template Engine](#Template%20Engine)
+* [License](#License)
 * [History](#History)
 
 # Getting Started
@@ -306,6 +307,11 @@ htmlworks serve
     <p>Last Update : 2020/06/14 19:23:53</p>
     ```
     更新日時の自動挿入などに利用できます。
+
+# License
+[MIT](https://github.com/playree/htmlworks/blob/master/LICENSE)
+
+Copyright (c) 2020 Kazuki Minakawa (funlab, Inc. https://funlab.jp)
 
 # History
 
