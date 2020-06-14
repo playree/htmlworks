@@ -8,21 +8,31 @@
 -->
 {{extends "_parts/base.html"}}
 {{define "content"}}
-<p>index.html</p>
-<p>str1:{{.str1}}</p>
-<p>int1:{{.int1}}</p>
-<p>
-	bool1:{{.bool1}}
-	{{if .bool1}}
-		<p style="padding-left: 1rem;">if TRUE</p>
-	{{end}}
-</p>
-<p>
-	array1:
-	<ul>
-		{{range $i, $val := .array1}}
-			<li>{{$i}} : {{$val}}</li>
+<div class="kk-container-m">
+	<img src="/resources/img/logo.png">
+	<p>
+		現在ドキュメントは準備中になります。<br>
+		ひとまずは、<a href="https://github.com/playree/htmlworks">README.md</a> をご覧ください。
+	</p>
+	<br>
+	<p>Last Update : {{now ""}}</p>
+	<p>最終更新 : {{now "2006年01月02日 15:04:05"}}</p>
+	<p>index.html</p>
+	<p>str1:{{.str1}}</p>
+	<p>int1:{{.int1}}</p>
+	<p>
+		bool1:{{.bool1}}
+		{{if .bool1}}
+			<p style="padding-left: 1rem;">if TRUE</p>
 		{{end}}
-	</ul>
-</p>
+	</p>
+	<p>
+		array1:
+		<ul>
+			{{range $i, $val := .array1}}
+				<li>{{$i}} : {{$val}}</li>
+			{{end}}
+		</ul>
+	</p>
+</div>
 {{end}}

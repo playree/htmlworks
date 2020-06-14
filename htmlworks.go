@@ -96,12 +96,24 @@ func main() {
 	}
 }
 
+func initGoingtpl() {
+	goingtpl.SetBaseDir(conf.Directories.Contents)
+	goingtpl.AddFixedFunc(
+		"now",
+		func(format string) string {
+			if format == "" {
+				format = "2006/01/02 15:04:05"
+			}
+			return time.Now().Format(format)
+		})
+}
+
 func procInit() {
 	log.Println("Start Init ========")
-	if f, err := os.Stat("htmlworks.toml"); os.IsNotExist(err) || f.IsDir() {
+	if f, err := os.Stat(configFilePath); os.IsNotExist(err) || f.IsDir() {
 		// Create htmlworks.toml
 		log.Println("Create htmlworks.toml")
-		fatalCheck(ioutil.WriteFile("htmlworks.toml", []byte(initToml), 0664))
+		fatalCheck(ioutil.WriteFile(configFilePath, []byte(initToml), 0664))
 		if f, err := os.Stat("contents\\_parts"); os.IsNotExist(err) || !f.IsDir() {
 			fatalCheck(os.MkdirAll("contents\\_parts", 0777))
 		}
@@ -116,6 +128,7 @@ func procInit() {
 
 func procServer() {
 	// Load config file.
+	log.Println("Load Setting >", configFilePath)
 	_, err := toml.DecodeFile(configFilePath, &conf)
 	fatalCheck(err)
 
@@ -124,7 +137,7 @@ func procServer() {
 	log.Println("Contents directory:", conf.Directories.Contents)
 	log.Println("Resources directory:", conf.Directories.Resources)
 
-	goingtpl.SetBaseDir(conf.Directories.Contents)
+	initGoingtpl()
 
 	http.HandleFunc("/", handleServer)
 	http.Handle(
@@ -208,6 +221,7 @@ func extParam(contents string) (map[string]interface{}, string, error) {
 
 func procGenerate() {
 	// Load config file.
+	log.Println("Load Setting >", configFilePath)
 	_, err := toml.DecodeFile(configFilePath, &conf)
 	fatalCheck(err)
 
@@ -217,13 +231,16 @@ func procGenerate() {
 	log.Println("Exclusion directory:", conf.Directories.Exclusion)
 	log.Println("Resources directory:", conf.Directories.Resources)
 
-	goingtpl.SetBaseDir(conf.Directories.Contents)
+	initGoingtpl()
 
 	processedMap := map[string]bool{}
 
 	// Get list before generation
-	for _, file := range getTargetGenerate() {
-		processedMap[file] = true
+	log.Println("# Check before generate")
+	if f, err := os.Stat(conf.Directories.Generate); os.IsExist(err) && f.IsDir() {
+		for _, file := range getTargetGenerate() {
+			processedMap[file] = true
+		}
 	}
 
 	// Generate contents

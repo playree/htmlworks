@@ -1,0 +1,233 @@
+/*! KUROUTO Kit 0.0.1 | https:// | (c) 2020 Kazuki Minakawa (funlab, Inc. https://funlab.jp) | MIT License */
+
+/*
+ * @s = @media (max-width: 559px)  : Smart Phone
+ * @m = @media (max-width: 959px)  : Tablet / Smart Phone(Landscape)
+ * @l = @media (max-width: 1359px) : Tablet(Landscape)
+ * other                           : Desktop
+ */
+
+/*
+ * Root Custom properties.
+ */
+:root {
+  --kk-font-family: "Kosugi Maru", -apple-system, BlinkMacSystemFont, Roboto, "Segoe UI", "Helvetica Neue", HelveticaNeue, 
+                    "游ゴシック体", YuGothic, "游ゴシック Medium", "Yu Gothic Medium", "游ゴシック", "Yu Gothic", 
+                    Verdana, "メイリオ", Meiryo, sans-serif;
+  --kk-font-family-head: var(--kk-font-family);
+  --kk-font-family-code: "Kosugi Maru", "BIZ UDGothic", SFMono-Regular, Consolas, "Roboto Mono", "Courier New", 
+                         Meiryo, monospace;
+  --kk-font-size-base: 16px;
+  --kk-font-size-small: 0.875rem;
+  --kk-font-color-base: #333;
+  --kk-font-color-mute: #888;
+
+  --kk-svg-select: url("data:image/svg+xml,%3Csvg%20width%3D%2211px%22%20height%3D%2211px%22%20version%3D%221.1%22%20viewBox%3D%220%200%2011%2011%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%20%3Cpath%20d%3D%22m8.7708%205c0.0051811-0.14952-0.080888-0.28982-0.22507-0.36685l-5.5825-2.9741c-0.30973-0.16558-0.7042%200.03264-0.70428%200.35391v5.9481c8.37e-5%200.32127%200.39456%200.5195%200.70428%200.35391l5.5825-2.9741c0.13529-0.072344%200.22004-0.20075%200.22507-0.34098z%22%20fill%3D%22%23888%22%20stroke-width%3D%22.78946%22%2F%3E%0A%3C%2Fsvg%3E%0A");
+  --kk-svg-menu: url("data:image/svg+xml,%3Csvg%20width%3D%2211px%22%20height%3D%2211px%22%20version%3D%221.1%22%20viewBox%3D%220%200%2011%2011%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0D%0A%20%3Crect%20x%3D%222%22%20y%3D%228%22%20width%3D%227%22%20height%3D%221%22%20fill%3D%22%23888%22%2F%3E%0D%0A%20%3Crect%20x%3D%222%22%20y%3D%225%22%20width%3D%227%22%20height%3D%221%22%20fill%3D%22%23888%22%2F%3E%0D%0A%20%3Crect%20x%3D%222%22%20y%3D%222%22%20width%3D%227%22%20height%3D%221%22%20fill%3D%22%23888%22%2F%3E%0D%0A%3C%2Fsvg%3E");
+}
+
+/*
+ * Global.
+ */
+body {
+  font-family: var(--kk-font-family);
+  font-size: var(--kk-font-size-base);
+  color: var(--kk-font-color-base);
+  line-height: 1.4;
+  margin: 0;
+}
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--kk-font-family-head);
+}
+code, pre {
+  font-family: var(--kk-font-family-code);
+  font-size: var(--kk-font-size-small);
+}
+svg {
+  fill: currentColor;
+  stroke: currentColor;
+}
+
+/*
+ * Hidden.
+ */
+ [hidden],
+ .kk-hidden {
+  display: none !important;
+}
+@media (max-width: 559px) {
+  .kk-hidden\@s {
+    display: none !important;
+  }
+}
+@media (max-width: 959px) {
+  .kk-hidden\@m {
+    display: none !important;
+  }
+}
+@media (max-width: 1359px) {
+  .kk-hidden\@l {
+    display: none !important;
+  }
+}
+
+/*
+ * Container.
+ * s:720px, m:1200px, l:1600px
+ */
+.kk-container,
+.kk-container-s,
+.kk-container-m,
+.kk-container-l {
+  margin-left: auto;
+  margin-right: auto;
+}
+.kk-container-s { max-width: 720px; }
+.kk-container-m { max-width: 1200px; }
+.kk-container-l { max-width: 1600px; }
+
+/*
+ * Grid.
+ */
+[grid], [grid-col], [grid-row],
+.kk-grid, .kk-grid-col, .kk-grid-row {
+  display: grid;
+}
+[grid], [grid-col],
+.kk-grid, .kk-grid-col {
+  grid-template-columns: repeat(10, 10%);
+}
+[grid], [grid-row],
+.kk-grid, .kk-grid-row {
+  grid-template-rows: repeat(10, 10%);
+}
+.kk-col1  { grid-column: span 1; }
+.kk-col2  { grid-column: span 2; }
+.kk-col3  { grid-column: span 3; }
+.kk-col4  { grid-column: span 4; }
+.kk-col5  { grid-column: span 5; }
+.kk-col6  { grid-column: span 6; }
+.kk-col7  { grid-column: span 7; }
+.kk-col8  { grid-column: span 8; }
+.kk-col9  { grid-column: span 9; }
+.kk-col10 { grid-column: span 10; }
+.kk-row1  { grid-row: span 1; }
+.kk-row2  { grid-row: span 2; }
+.kk-row3  { grid-row: span 3; }
+.kk-row4  { grid-row: span 4; }
+.kk-row5  { grid-row: span 5; }
+.kk-row6  { grid-row: span 6; }
+.kk-row7  { grid-row: span 7; }
+.kk-row8  { grid-row: span 8; }
+.kk-row9  { grid-row: span 9; }
+.kk-row10 { grid-row: span 10; }
+
+/*
+ * Padding.
+ */
+.kk-padding-s { padding: 0.5rem; }
+.kk-padding,
+.kk-padding-m { padding: 1.0rem; }
+.kk-padding-l { padding: 2.0rem; }
+
+/*
+ * Accordion.
+ */
+.kk-accordion {
+  cursor: pointer;
+}
+.kk-accordion+* {
+  transition: height .3s;
+  overflow-y: hidden;
+}
+.kk-accordion[closed]+* {
+  height: 0;
+}
+
+/*
+ * SideNav.
+ * ==== Custom properties.
+ * --kk-sidenav-width
+ * --kk-sidenav-bg-color
+ * --kk-sidenav-icon
+ */
+.kk-sidenav-container {
+  --kk-sidenav-width: 280px;
+  --kk-sidenav-bg-color: #f8f8f8;
+  --kk-sidenav-icon: var(--kk-svg-menu);
+}
+.kk-sidenav-menu {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--kk-sidenav-width);
+  background-color: var(--kk-sidenav-bg-color);
+  z-index: 99;
+  transition: left .3s;
+}
+.kk-sidenav-main {
+  position: fixed;
+  display: block;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  left: var(--kk-sidenav-width);
+  overflow: auto;
+  transition: left .3s;
+}
+@media (max-width: 959px) {
+  .kk-sidenav-menu {
+    left: calc(-1 * var(--kk-sidenav-width));
+  }
+  .kk-sidenav-menu:hover {
+    left: 0;
+  }
+  .kk-sidenav-menu::after {
+    position: absolute;
+    top: 4px;
+    left: calc(4px +  var(--kk-sidenav-width));
+    content: var(--kk-sidenav-icon);
+    height: 24px;
+    width: 32px;
+    color: #888;
+    background-color: #e8e8ff;
+    text-align: center;
+    line-height: 24px;
+    opacity: 0.8;
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.4);
+  }
+  .kk-sidenav-main {
+    left: 0;
+  }
+}
+.kk-sidenav-menu ul {
+  list-style: none;
+  padding-left: 0;
+}
+.kk-sidenav-menu>ul {
+  padding-right: 8px;
+}
+.kk-sidenav-menu>ul li {
+  padding-left: 24px;
+  font-size: var(--kk-font-size-small);
+  line-height: 1.6;
+  color: var(--kk-font-color-mute);
+}
+.kk-sidenav-menu>ul li>a {
+  color: unset;
+  text-decoration: unset;
+  display: block;
+}
+.kk-sidenav-menu>ul li:hover::before {
+  content: var(--kk-svg-select);
+  position: absolute;
+  margin-left: -16px;
+}
+.kk-sidenav-menu>ul li:hover {
+  color: var(--kk-font-color-base);
+}
+.kk-sidenav-menu>ul li:empty {
+  border-top: solid 1px #ddd;
+  margin: 8px;
+}
