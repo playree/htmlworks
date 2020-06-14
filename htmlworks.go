@@ -48,7 +48,7 @@ type Config struct {
 }
 
 const (
-	version        = "1.0.0"
+	version        = "0.1.0"
 	configFilePath = "./htmlworks.toml"
 	paramStart     = "<!--params"
 	paramEnd       = "-->"
@@ -92,8 +92,16 @@ func main() {
 		procGenerate()
 		break
 	default:
+		procShow()
 		break
 	}
+}
+
+func procShow() {
+	log.Println("Please specify args below")
+	log.Println("> init  :", "Initialize the environment")
+	log.Println("> gen   :", "Generate static HTML")
+	log.Println("> serve :", "Launch a development server")
 }
 
 func initGoingtpl() {
