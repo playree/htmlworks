@@ -69,8 +69,7 @@ htmlworks init
     ```
     <!--params
         {
-            "title":"HTML Works",
-    
+            "title":"HTML Works"
         }
     -->
     {{extends "_parts/base.html"}}
