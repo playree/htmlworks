@@ -194,7 +194,7 @@ htmlworks serve
         <p>str1:abc</p>
         <p>int1:123</p>
         <p>
-        bool1:{{.bool1}}
+        bool1:true
             <p>if TRUE</p>
         </p>
         <p>
